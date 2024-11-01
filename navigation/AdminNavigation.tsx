@@ -1,20 +1,20 @@
 // src/navigation/MainNavigation.tsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/authContext';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-
-// Screens
-import HomeScreen from '../screens/main/MainScreen';
-import TeamsScreen from '../screens/main/TeamsScreen';
-import MatchesScreen from '../screens/main/MatchesScreen';
-import StatisticsScreen from '../screens/main/StatsScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
+// Admin Screens
+import TeamsManagementScreen from '../screens/admin/TeamsManagementScreen';
+import PlayersManagementScreen from '../screens/admin/PlayersManagementScreen';
+import MatchesManagementScreen from '../screens/admin/MatchesManagementScreen';
+import UsersManagementScreen from '../screens/admin/UsersManagementScreen';
 
 const Tab = createBottomTabNavigator();
 
 
-export const MainNavigator = () => {
+export const AdminNavigator = () => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -49,28 +49,23 @@ export const MainNavigator = () => {
         >
             <Tab.Screen
                 name="Home"
-                component={HomeScreen}
-                options={{ title: 'Home' }}
+                component={PlayersManagementScreen}
+                options={{ title: 'Players' }}
             />
             <Tab.Screen
                 name="Teams"
-                component={TeamsScreen}
+                component={TeamsManagementScreen}
                 options={{ title: 'Teams' }}
             />
             <Tab.Screen
                 name="Matches"
-                component={MatchesScreen}
+                component={MatchesManagementScreen}
                 options={{ title: 'Matches' }}
             />
             <Tab.Screen
-                name="Statistics"
-                component={StatisticsScreen}
-                options={{ title: 'Statistics' }}
-            />
-            <Tab.Screen
                 name="Profile"
-                component={ProfileScreen}
-                options={{ title: 'Profile' }}
+                component={UsersManagementScreen}
+                options={{ title: 'Users' }}
             />
         </Tab.Navigator>
     );

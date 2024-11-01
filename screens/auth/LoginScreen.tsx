@@ -21,8 +21,7 @@ const LoginScreen = () => {
         try {
             setLoading(true);
             await signIn(email, password);
-            // No necesitas navegar manualmente, el RootNavigator lo hará automáticamente
-            // cuando el estado del usuario cambie
+
         } catch (error) {
             console.error('Error en login:', error);
             Alert.alert(
@@ -36,41 +35,30 @@ const LoginScreen = () => {
 
     return (
         <View style={styles.container}>
+            <Text style={styles.title}>Soccer Tournament</Text>
             <TextInput
+                style={styles.input}
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
-                style={styles.input}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                editable={!loading}
             />
             <TextInput
+                style={styles.input}
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
-                style={styles.input}
                 secureTextEntry
-                editable={!loading}
             />
-            <Button
-                title={loading ? "Cargando..." : "Login"}
-                onPress={handleLogin}
-                disabled={loading}
-            />
-            <TouchableOpacity
-                onPress={() => navigation.navigate('Register')}
-                style={styles.link}
-                disabled={loading}
-            >
-                <Text>Registrarme</Text>
+            <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                <Text style={styles.buttonText}>Iniciar sesion</Text>
             </TouchableOpacity>
             <TouchableOpacity
+                style={styles.linkButton}
                 onPress={() => navigation.navigate('ForgotPassword')}
-                style={styles.link}
-                disabled={loading}
             >
-                <Text>Olvidé mi contraseña</Text>
+                <Text style={styles.linkText}>¿Olvidó su contraseña?</Text>
             </TouchableOpacity>
         </View>
     );
@@ -78,20 +66,45 @@ const LoginScreen = () => {
 
 const styles = StyleSheet.create({
     container: {
-      flex: 1,
-      padding: 20,
-      justifyContent: 'center',
+        flex: 1,
+        padding: 20,
+        justifyContent: 'center',
+        backgroundColor: '#fff',
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 40,
+        color: '#34D399',
     },
     input: {
-      borderWidth: 1,
-      borderColor: '#ddd',
-      padding: 10,
-      marginBottom: 10,
-      borderRadius: 5,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 15,
+        fontSize: 16,
     },
-    link: {
-      marginTop: 15,
-      alignItems: 'center',
-    }
-  });
+    button: {
+        backgroundColor: '#34D399',
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    linkButton: {
+        marginTop: 15,
+        alignItems: 'center',
+    },
+    linkText: {
+        color: '#34D399',
+        fontSize: 14,
+    },
+});
 export default LoginScreen;

@@ -4,17 +4,21 @@ import { supabase } from '../lib/createClient';
 import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Definir el tipo para el contexto
+
+type UserType = 'player' | 'team';
+
 type AuthContextData = {
     user: User | null;
     session: Session | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string) => Promise<void>;
+    createUser: (email: string, password: string, userType: UserType) => Promise<void>;
     signOut: () => Promise<void>;
     forgotPassword: (email: string) => Promise<void>;
     isAdmin: boolean;
 };
+
+
 
 // Crear el contexto
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -35,18 +39,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
 
+
+
     useEffect(() => {
-        // Escucha los cambios en la sesión
         supabase.auth.onAuthStateChange((event, session) => {
-          setUser(session?.user ?? null);
+            console.log('Cambio de estado:', event, session);
+            setUser(session?.user ?? null);
+            setSession(session);
+            if (session) {
+                AsyncStorage.setItem('supabase.auth.token', JSON.stringify(session));
+            }
+
+            const checkAdmin = async () => {
+                if (session) {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('role')
+                        .eq('user', session?.user.id)
+                        .single();
+                    if (error) throw error;
+                    setIsAdmin(data?.role === 'admin');
+                    console.log('Es admin:', data?.role === 'admin');
+                }
+            }
+            checkAdmin();
+
         });
-      }, []);
+
+
+
+        const restoreSession = async () => {
+            const session = await AsyncStorage.getItem('supabase.auth.token');
+            if (session) {
+                const { user, session: newSession } = JSON.parse(session);
+                setUser(user);
+                setSession(newSession);
+            }
+            setLoading(false);
+        };
+
+        restoreSession();
+
+    }, []);
 
     // Iniciar sesión
     const signIn = async (email: string, password: string) => {
         try {
             setLoading(true);
             const { error } = await supabase.auth.signInWithPassword({ email, password });
+
             if (error) throw error;
 
         } catch (error) {
@@ -57,8 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    // Registrarse
-    const signUp = async (email: string, password: string) => {
+    const createUser = async (email: string, password: string, userType: UserType) => {
         try {
             setLoading(true);
             const { error, data: { user: newUser } } = await supabase.auth.signUp({
@@ -68,15 +108,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (error) throw error;
 
-            // Crear perfil del usuario
             if (newUser) {
                 const { error: profileError } = await supabase
-                    .from('profiles')
+                    .from('users')
                     .insert([
                         {
-                            id: newUser.id,
+                            user: newUser.id,
                             email: email,
-                            role: 'follower', // rol por defecto
+                            role: userType,
                         }
                     ]);
 
@@ -96,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(true);
             console.log('Estado antes de cerrar sesión:', {
                 user: user?.email,
-                session: session?.access_token,
+                session: session,
                 isAdmin
             });
 
@@ -156,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             session,
             loading,
             signIn,
-            signUp,
+            createUser,
             signOut,
             forgotPassword,
             isAdmin,

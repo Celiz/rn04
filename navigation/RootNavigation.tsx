@@ -3,22 +3,36 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/authContext';
 import { MainNavigator } from './MainNavigation';
 import { AuthNavigator } from './AuthNavigation';
+import { AdminNavigator } from './AdminNavigation';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
 
   return (
     <Stack.Navigator>
       {!user ? (
-        // Auth Stack
         <>
           <Stack.Screen name="Auth" component={AuthNavigator} />
         </>
       ) : (
-        // Main Stack
-        <Stack.Screen name="Main" component={MainNavigator} options={{ headerShown: false }} />
+        <>
+        {
+            isAdmin ? (
+                // Admin Stack
+                <>
+                <Stack.Screen name="Admin" component={AdminNavigator} />
+                </>
+            ) : (
+                // Main Stack
+                <>
+                <Stack.Screen name="Main" component={MainNavigator} />
+                </>
+            )
+        }
+        </>
       )}
     </Stack.Navigator>
   );
