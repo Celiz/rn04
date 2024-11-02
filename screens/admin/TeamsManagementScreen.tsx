@@ -1,25 +1,97 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useTeams } from '../../hooks/useTeams';
 import { Team } from '../../types';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImage } from '../../utils/storage';
 
 const TeamsManagementScreen = () => {
     const { teams, loading, createTeam, updateTeam, deleteTeam } = useTeams();
+    const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
-    const handleAddTeam = () => {
-        createTeam({ name: 'Nuevo equipo' });
+
+    const handleUpdateTeamImage = async (teamId: number) => {
+    try {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (permissionResult.granted === false) {
+            alert('Se necesita permiso para acceder a la galería');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+            // Asegúrate de que el picker devuelva información sobre el tipo de archivo
+            allowsMultipleSelection: false,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setUploadingImage(teamId.toString());
+            const imageUri = result.assets[0].uri;
+            try {
+                const publicUrl = await uploadImage(imageUri, 'team-shields');
+                
+                if (publicUrl) {
+                    await updateTeam(Number(teamId), { team_shield: publicUrl });
+                }
+            } catch (error) {
+                console.error('Error al actualizar la imagen:', error);
+                // Mostrar el mensaje de error específico al usuario
+                alert(error instanceof Error ? error.message : 'Error al actualizar la imagen');
+            } finally {
+                setUploadingImage(null);
+            }
+        }
+    } catch (error) {
+        console.error('Error al seleccionar imagen:', error);
+        alert('Error al seleccionar la imagen');
+        setUploadingImage(null);
+    }
+};
+
+    const renderTeamIcon = (team: Team) => {
+        if (uploadingImage == team.id.toString()) {
+            return (
+                <View style={styles.teamIcon}>
+                    <ActivityIndicator color="#34D399" />
+                </View>
+            );
+        }
+
+        if (team.team_shield) {
+            return (
+                <TouchableOpacity onPress={() => handleUpdateTeamImage(team.id)}>
+                    <Image 
+                        source={{ uri: team.team_shield }} 
+                        style={styles.teamIcon}
+                    />
+                </TouchableOpacity>
+            );
+        }
+
+        return (
+            <TouchableOpacity 
+                style={styles.teamIconPlaceholder}
+                onPress={() => handleUpdateTeamImage(team.id)}
+            >
+                <Text style={styles.uploadText}>+</Text>
+            </TouchableOpacity>
+        );
     };
-
 
     return (
         <View style={styles.container}>
+
             <FlatList
                 data={teams}
                 style={styles.list}
                 renderItem={({ item }) => (
                     <View style={styles.card}>
                         <View style={styles.cardContent}>
-                            <View style={styles.teamIcon} />
+                            {renderTeamIcon(item)}
                             <Text style={styles.teamName}>{item.name}</Text>
                             <TouchableOpacity 
                                 style={styles.deleteButton}
@@ -77,8 +149,25 @@ const styles = StyleSheet.create({
     teamIcon: {
         width: 40,
         height: 40,
-        backgroundColor: '#ddd',
         borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    teamIconPlaceholder: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderStyle: 'dashed',
+    },
+    uploadText: {
+        fontSize: 24,
+        color: '#666',
     },
     teamName: {
         fontSize: 18,

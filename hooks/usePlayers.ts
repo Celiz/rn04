@@ -6,23 +6,20 @@ export const usePlayers = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
-//   const fetchPlayers = async () => {
-//     try {
-//       const { data, error } = await supabase
-//         .from('players')
-//         .select(`
-//           *,
-//           users:user_id (*)
-//         `);
+  const fetchPlayers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select(`*`);
       
-//       if (error) throw error;
-//       setPlayers(data || []);
-//     } catch (error) {
-//       console.error('Error fetching players:', error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
+      if (error) throw error;
+      setPlayers(data || []);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const createPlayer = async (playerData: Partial<Player>) => {
     try {
@@ -72,8 +69,8 @@ export const usePlayers = () => {
   };
 
   useEffect(() => {
-    // fetchPlayers();
+    fetchPlayers();
   }, []);
 
-  return { players, loading, createPlayer, updatePlayer, deletePlayer };
+  return { players, loading, fetchPlayers,createPlayer, updatePlayer, deletePlayer };
 };

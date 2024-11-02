@@ -17,6 +17,7 @@ export interface Player {
   team: number;
   created_at: string;
   user_id: string;
+  image: string;
 }
 
 export interface Match {

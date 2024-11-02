@@ -1,26 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert, Image } from 'react-native';
 import { User, Player, Team } from '../../types';
 import { useUserManagement } from '../../hooks/useUserManagment';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImage } from '../../utils/storage';
 
 interface CreateUserForm {
-  email: string;
-  role: 'player' | 'team';
-  // Campos específicos para jugadores
-  name?: string;
-  surname?: string;
-  jerseyNumber?: string;
-  age?: string;
-  position?: string;
-  // Campos específicos para equipos
-  teamName?: string;
-  teamShield?: string;
+    email: string;
+    role: 'player' | 'team';
+    // Campos específicos para jugadores
+    name?: string;
+    surname?: string;
+    jerseyNumber?: string;
+    age?: string;
+    position?: string;
+    // Campos específicos para equipos
+    teamName?: string;
+    teamShield?: string;
 }
 
 const UsersManagementScreen = () => {
     const [users, setUsers] = useState<User[]>([]);
     const { createUserWithRole } = useUserManagement();
     const [showForm, setShowForm] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -34,11 +37,50 @@ const UsersManagementScreen = () => {
         teamShield: '',
     });
 
+    const pickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission Required', 'You need to grant permission to access your photos');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setSelectedImage(result.assets[0].uri);
+            setFormData(prev => ({ ...prev, teamShield: result.assets[0].uri }));
+        }
+    };
+
+
     const handleCreateUser = async () => {
         try {
-            console.log('Creating user with data:', JSON.stringify(formData, null, 2));
-            
-            if (formData.role === 'player') {
+            if (formData.role === 'team' && selectedImage) {
+                // Subir la imagen primero
+                const publicUrl = await uploadImage(selectedImage, 'team-shields');
+
+                if (!publicUrl) {
+                    throw new Error('Failed to upload team shield');
+                }
+
+                const result = await createUserWithRole({
+                    email: formData.email,
+                    password: formData.password,
+                    role: 'team',
+                    teamData: {
+                        name: formData.teamName,
+                        team_shield: publicUrl,
+                    },
+                });
+                console.log('Team creation result:', result);
+            } else if (formData.role === 'player') {
+                // Lógica existente para crear jugador
                 const result = await createUserWithRole({
                     email: formData.email,
                     password: formData.password,
@@ -52,26 +94,43 @@ const UsersManagementScreen = () => {
                     },
                 });
                 console.log('Player creation result:', result);
-            } else {
-                const result = await createUserWithRole({
-                    email: formData.email,
-                    password: formData.password,
-                    role: 'team',
-                    teamData: {
-                        name: formData.teamName,
-                        team_shield: formData.teamShield,
-                    },
-                });
-                console.log('Team creation result:', result);
             }
-    
+
             setShowForm(false);
+            setSelectedImage(null);
             Alert.alert('Éxito', 'Usuario creado correctamente');
         } catch (error) {
             console.error('Error creating user:', error);
             Alert.alert('Error', `No se pudo crear el usuario: ${(error as Error).message}`);
         }
     };
+
+    const renderTeamImageUpload = () => (
+        <View style={styles.imageUploadContainer}>
+            {selectedImage ? (
+                <View style={styles.selectedImageContainer}>
+                    <Image
+                        source={{ uri: selectedImage }}
+                        style={styles.selectedImage}
+                    />
+                    <TouchableOpacity
+                        style={styles.changeImageButton}
+                        onPress={pickImage}
+                    >
+                        <Text style={styles.changeImageText}>Cambiar imagen</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <TouchableOpacity
+                    style={styles.uploadButton}
+                    onPress={pickImage}
+                >
+                    <Text style={styles.uploadButtonText}>Subir escudo del equipo</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
 
     const renderForm = () => (
         <View style={styles.formContainer}>
@@ -89,7 +148,7 @@ const UsersManagementScreen = () => {
                 onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
                 secureTextEntry
             />
-            
+
             <TouchableOpacity
                 style={[
                     styles.roleSelector,
@@ -99,7 +158,7 @@ const UsersManagementScreen = () => {
             >
                 <Text>Jugador</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
                 style={[
                     styles.roleSelector,
@@ -155,18 +214,20 @@ const UsersManagementScreen = () => {
                         value={formData.teamName}
                         onChangeText={(text) => setFormData(prev => ({ ...prev, teamName: text }))}
                     />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="URL del escudo"
-                        value={formData.teamShield}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, teamShield: text }))}
-                    />
+                    {renderTeamImageUpload()}
                 </>
             )}
 
-            <TouchableOpacity 
-                style={styles.submitButton}
-                onPress={() => handleCreateUser()}
+            <TouchableOpacity
+                style={[
+                    styles.submitButton,
+                    (!formData.email || !formData.password ||
+                        (formData.role === 'team' && (!formData.teamName || !selectedImage))) &&
+                    styles.submitButtonDisabled
+                ]}
+                onPress={handleCreateUser}
+                disabled={!formData.email || !formData.password ||
+                    (formData.role === 'team' && (!formData.teamName || !selectedImage))}
             >
                 <Text style={styles.submitButtonText}>Crear Usuario</Text>
             </TouchableOpacity>
@@ -176,8 +237,8 @@ const UsersManagementScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity 
-                    style={styles.addButton} 
+                <TouchableOpacity
+                    style={styles.addButton}
                     onPress={() => setShowForm(!showForm)}
                 >
                     <Text style={styles.buttonText}>
@@ -359,6 +420,47 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    imageUploadContainer: {
+        marginVertical: 10,
+        alignItems: 'center',
+    },
+    uploadButton: {
+        backgroundColor: '#f0f0f0',
+        padding: 15,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderStyle: 'dashed',
+        width: '100%',
+        alignItems: 'center',
+    },
+    uploadButtonText: {
+        color: '#666',
+        fontSize: 16,
+    },
+    selectedImageContainer: {
+        alignItems: 'center',
+        width: '100%',
+    },
+    selectedImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        marginBottom: 10,
+    },
+    changeImageButton: {
+        padding: 8,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 6,
+    },
+    changeImageText: {
+        color: '#666',
+    },
+    submitButtonDisabled: {
+        backgroundColor: '#a8a8a8',
+        opacity: 0.7,
+    },
+
 
 
 });
