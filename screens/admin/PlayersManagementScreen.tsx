@@ -1,72 +1,180 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { 
+    View, 
+    Text, 
+    FlatList, 
+    TouchableOpacity, 
+    StyleSheet, 
+    Image, 
+    ActivityIndicator, 
+    Platform,
+    Modal,
+    SafeAreaView,
+    Alert
+} from 'react-native';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { usePlayers } from '../../hooks/usePlayers';
 import { Player } from '../../types';
-import * as ImagePicker from 'expo-image-picker';
 import { uploadImage } from '../../utils/storage';
+
+const CameraComponent = ({ 
+    visible, 
+    onClose, 
+    onTakePhoto 
+}: { 
+    visible: boolean; 
+    onClose: () => void; 
+    onTakePhoto: (uri: string) => void;
+}) => {
+    const [facing, setFacing] = useState<CameraType>('back');
+    const [permission, requestPermission] = useCameraPermissions();
+    const [photo, setPhoto] = useState<string | null>(null);
+    const cameraRef = useRef<any>(null);
+
+    if (!permission?.granted) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.message}>We need your permission to show the camera</Text>
+                <TouchableOpacity 
+                    style={styles.permissionButton} 
+                    onPress={requestPermission}
+                >
+                    <Text style={styles.permissionButtonText}>Grant Permission</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    const takePicture = async () => {
+        if (cameraRef.current) {
+            try {
+                const photo = await cameraRef.current.takePictureAsync();
+                setPhoto(photo.uri);
+            } catch (error) {
+                console.error('Error taking picture:', error);
+            }
+        }
+    };
+
+    const handleUsePhoto = () => {
+        if (photo) {
+            onTakePhoto(photo);
+            setPhoto(null);
+            onClose();
+        }
+    };
+
+    return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            onRequestClose={onClose}
+        >
+            <SafeAreaView style={styles.modalContainer}>
+                {photo ? (
+                    <View style={styles.container}>
+                        <Image source={{ uri: photo }} style={styles.camera} />
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity 
+                                style={styles.cameraButton} 
+                                onPress={() => setPhoto(null)}
+                            >
+                                <Text style={styles.buttonText}>Retake</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.cameraButton, styles.usePhotoButton]} 
+                                onPress={handleUsePhoto}
+                            >
+                                <Text style={styles.buttonText}>Use Photo</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.container}>
+                        <CameraView 
+                            style={styles.camera} 
+                            facing={facing}
+                            ref={cameraRef}
+                        >
+                            <View style={styles.buttonContainer}>
+                                <TouchableOpacity 
+                                    style={styles.cameraButton} 
+                                    onPress={() => setFacing(current => 
+                                        current === 'back' ? 'front' : 'back'
+                                    )}
+                                >
+                                    <Text style={styles.buttonText}>Flip</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={styles.cameraButton} 
+                                    onPress={takePicture}
+                                >
+                                    <Text style={styles.buttonText}>Take Photo</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[styles.cameraButton, styles.closeButton]} 
+                                    onPress={onClose}
+                                >
+                                    <Text style={styles.buttonText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </CameraView>
+                    </View>
+                )}
+            </SafeAreaView>
+        </Modal>
+    );
+};
 
 const PlayersManagementScreen = () => {
     const { players, loading, createPlayer, deletePlayer, updatePlayer, fetchPlayers } = usePlayers();
     const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+    const [showCamera, setShowCamera] = useState(false);
+    const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
 
-    const handleCapturePlayerImage = async (playerId: number) => {
-        try {
-            // Detect environment
-            const isWeb = Platform.OS === 'web';
-            if (isWeb && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                // Attempt to capture with camera in web
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    const track = stream.getVideoTracks()[0];
-                    const imageCapture = new (window as any).ImageCapture(track);
-                    const blob = await imageCapture.takePhoto();
+    const handleCapturePlayerImage = (playerId: number) => {
+        setSelectedPlayerId(playerId);
+        setShowCamera(true);
+    };
 
-                    // Assuming blob as an image to be uploaded
-                    const imageUri = URL.createObjectURL(blob);
-                    setUploadingImage(playerId.toString());
-                    const publicUrl = await uploadImage(imageUri, 'player-photos');
-                    
-                    if (publicUrl) {
-                        await updatePlayer(playerId, { image: publicUrl });
-                        await fetchPlayers(); // Refresh the players list
-                    }
-                    track.stop();
-                } catch (error) {
-                    console.error('Error al capturar imagen en web:', error);
-                    alert('Error al capturar la imagen en la web');
-                }
-            } else {
-                // Mobile behavior: request camera permissions and capture image
-                const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    const handlePhotoTaken = async (photoUri: string) => {
+        if (selectedPlayerId) {
+            try {
+                setUploadingImage(selectedPlayerId.toString());
                 
-                if (!permissionResult.granted) {
-                    alert('Se necesita permiso para acceder a la cámara');
-                    return;
+                // Preprocesar la URI de la imagen
+                const publicUrl = await uploadImage(photoUri, 'player-photos');
+                
+                if (publicUrl) {
+                    await updatePlayer(selectedPlayerId, { image: publicUrl });
+                    await fetchPlayers();
                 }
-
-                const result = await ImagePicker.launchCameraAsync({
-                    allowsEditing: true,
-                    aspect: [1, 1],
-                    quality: 1,
-                });
-
-                if (!result.canceled && result.assets[0]) {
-                    const imageUri = result.assets[0].uri;
-                    setUploadingImage(playerId.toString());
-                    const publicUrl = await uploadImage(imageUri, 'player-photos');
-
-                    if (publicUrl) {
-                        await updatePlayer(playerId, { image: publicUrl });
-                        await fetchPlayers(); // Refresh the players list
-                    }
-                }
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                alert('Error uploading the image');
+            } finally {
+                setUploadingImage(null);
+                setSelectedPlayerId(null);
             }
-        } catch (error) {
-            console.error('Error al capturar imagen:', error);
-            alert('Error al capturar la imagen');
-        } finally {
-            setUploadingImage(null);
         }
+    };
+
+    const handleDeletePlayer = (playerId: number) => {
+        Alert.alert(
+            "Confirmar eliminación",
+            "¿Estás seguro que deseas eliminar este jugador?",
+            [
+                {
+                    text: "Cancelar",
+                    style: "cancel"
+                },
+                {
+                    text: "Eliminar",
+                    style: "destructive",
+                    onPress: () => deletePlayer(playerId)
+                }
+            ]
+        );
     };
 
     const renderPlayerIcon = (player: Player) => {
@@ -106,7 +214,7 @@ const PlayersManagementScreen = () => {
                 <Text style={styles.playerName}>{item.name}</Text>
                 <TouchableOpacity 
                     style={styles.deleteButton}
-                    onPress={() => deletePlayer(item.id)}
+                    onPress={() => handleDeletePlayer(item.id)}
                 >
                     <Text style={styles.deleteText}>Eliminar</Text>
                 </TouchableOpacity>
@@ -126,6 +234,12 @@ const PlayersManagementScreen = () => {
                 renderItem={renderPlayerItem}
                 keyExtractor={item => item.id.toString()}
             />
+            
+            <CameraComponent
+                visible={showCamera}
+                onClose={() => setShowCamera(false)}
+                onTakePhoto={handlePhotoTaken}
+            />
         </View>
     );
 };
@@ -134,6 +248,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: '#000',
     },
     list: {
         padding: 20,
@@ -185,6 +303,53 @@ const styles = StyleSheet.create({
     },
     deleteText: {
         color: '#ff4444',
+        fontWeight: 'bold',
+    },
+    camera: {
+        flex: 1,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'transparent',
+        margin: 20,
+        justifyContent: 'space-around',
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+    },
+    cameraButton: {
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        minWidth: 100,
+    },
+    usePhotoButton: {
+        backgroundColor: '#34D399',
+    },
+    closeButton: {
+        backgroundColor: '#ff4444',
+    },
+    buttonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    message: {
+        textAlign: 'center',
+        color: '#fff',
+        marginBottom: 20,
+    },
+    permissionButton: {
+        backgroundColor: '#34D399',
+        padding: 15,
+        borderRadius: 10,
+        marginHorizontal: 20,
+    },
+    permissionButtonText: {
+        color: '#fff',
+        textAlign: 'center',
         fontWeight: 'bold',
     },
 });

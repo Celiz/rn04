@@ -4,6 +4,7 @@ import { User, Player, Team } from '../../types';
 import { useUserManagement } from '../../hooks/useUserManagment';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImage } from '../../utils/storage';
+import { useAuth } from '../../context/authContext';
 
 interface CreateUserForm {
     email: string;
@@ -37,6 +38,27 @@ const UsersManagementScreen = () => {
         teamShield: '',
     });
 
+
+    const { signOut } = useAuth();
+
+    const handleLogout = () => {
+        Alert.alert(
+            "Confirmar cierre de sesión",
+            "¿Estás seguro que deseas cerrar sesión?",
+            [
+                {
+                    text: "Cancelar",
+                    style: "cancel"
+                },
+                {
+                    text: "Cerrar sesión",
+                    style: "destructive",
+                    onPress: () => signOut()
+                }
+            ]
+        );
+    };
+
     const pickImage = async () => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -62,23 +84,45 @@ const UsersManagementScreen = () => {
     const handleCreateUser = async () => {
         try {
             if (formData.role === 'team' && selectedImage) {
-                // Subir la imagen primero
-                const publicUrl = await uploadImage(selectedImage, 'team-shields');
+                console.log('Starting team creation with image upload...');
+                console.log('Selected image URI:', selectedImage);
 
-                if (!publicUrl) {
-                    throw new Error('Failed to upload team shield');
+                let publicUrl: string | null = null;
+
+                try {
+                    publicUrl = await uploadImage(selectedImage, 'team-shields');
+                    console.log('Upload successful, received URL:', publicUrl);
+
+                    if (!publicUrl) {
+                        throw new Error('No se pudo obtener la URL de la imagen');
+                    }
+
+                    // Crear el usuario con la imagen
+                    const result = await createUserWithRole({
+                        email: formData.email,
+                        password: formData.password,
+                        role: 'team',
+                        teamData: {
+                            name: formData.teamName,
+                            team_shield: publicUrl,
+                        },
+                    });
+
+                    console.log('Team creation successful:', result);
+                    setShowForm(false);
+                    setSelectedImage(null);
+                    Alert.alert('Éxito', 'Usuario y equipo creados correctamente');
+
+                } catch (uploadError) {
+                    console.error('Error during upload or team creation:', uploadError);
+                    Alert.alert(
+                        'Error',
+                        'No se pudo subir la imagen o crear el equipo. Por favor, intenta nuevamente.'
+                    );
+                    return;
                 }
 
-                const result = await createUserWithRole({
-                    email: formData.email,
-                    password: formData.password,
-                    role: 'team',
-                    teamData: {
-                        name: formData.teamName,
-                        team_shield: publicUrl,
-                    },
-                });
-                console.log('Team creation result:', result);
+
             } else if (formData.role === 'player') {
                 // Lógica existente para crear jugador
                 const result = await createUserWithRole({
@@ -100,8 +144,13 @@ const UsersManagementScreen = () => {
             setSelectedImage(null);
             Alert.alert('Éxito', 'Usuario creado correctamente');
         } catch (error) {
-            console.error('Error creating user:', error);
-            Alert.alert('Error', `No se pudo crear el usuario: ${(error as Error).message}`);
+            console.error('Error in handleCreateUser:', error);
+            Alert.alert(
+                'Error',
+                error instanceof Error
+                    ? error.message
+                    : 'Ocurrió un error al crear el usuario'
+            );
         }
     };
 
@@ -245,6 +294,9 @@ const UsersManagementScreen = () => {
                         {showForm ? 'Cancelar' : 'Agregar Usuario'}
                     </Text>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                    <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
+                </TouchableOpacity>
             </View>
 
             {showForm ? renderForm() : (
@@ -272,18 +324,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         padding: 20,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#ddd',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 10,
-        fontSize: 16,
     },
     addButton: {
         backgroundColor: '#34D399',
@@ -292,6 +338,51 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    logoutButton: {
+        backgroundColor: '#ff4444',
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    logoutButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    formContainer: {
+        padding: 20,
+    },
+    input: {
+        height: 45,
+        borderColor: '#ddd',
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 10,
+    },
+    roleSelector: {
+        padding: 15,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    roleSelectorActive: {
+        backgroundColor: '#34D399',
+        borderColor: '#34D399',
+    },
+    submitButton: {
+        backgroundColor: '#34D399',
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    submitButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
@@ -312,57 +403,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    teamIcon: {
-        width: 40,
-        height: 40,
-        backgroundColor: '#ddd',
-        borderRadius: 20,
-    },
-    teamName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        flex: 1,
-        marginLeft: 10,
-    },
-    playerName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    playerInfo: {
-        fontSize: 14,
-        color: '#666',
-    },
-    matchHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-    },
-    matchContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    dateText: {
-        fontSize: 14,
-        color: '#666',
-    },
-    stadiumText: {
-        fontSize: 14,
-        color: '#666',
-    },
-    teamText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    scoreText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    vsText: {
-        fontSize: 16,
-        color: '#666',
-    },
     emailText: {
         fontSize: 16,
         fontWeight: 'bold',
@@ -370,7 +410,6 @@ const styles = StyleSheet.create({
     roleText: {
         fontSize: 14,
         color: '#666',
-        textTransform: 'capitalize',
     },
     actionButtons: {
         flexDirection: 'row',
@@ -391,33 +430,6 @@ const styles = StyleSheet.create({
     },
     deleteText: {
         color: '#ff4444',
-        fontWeight: 'bold',
-    },
-
-    formContainer: {
-        padding: 20,
-    },
-    roleSelector: {
-        padding: 10,
-        marginVertical: 5,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-    },
-    roleSelectorActive: {
-        backgroundColor: '#e8e8e8',
-        borderColor: '#34D399',
-    },
-    submitButton: {
-        backgroundColor: '#34D399',
-        padding: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    submitButtonText: {
-        color: '#fff',
-        fontSize: 16,
         fontWeight: 'bold',
     },
     imageUploadContainer: {
@@ -460,8 +472,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#a8a8a8',
         opacity: 0.7,
     },
-
-
 
 });
 

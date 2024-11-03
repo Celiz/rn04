@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useTeams } from '../../hooks/useTeams';
 import { Team } from '../../types';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,24 @@ const TeamsManagementScreen = () => {
     const { teams, loading, createTeam, updateTeam, deleteTeam } = useTeams();
     const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
+
+    const handleDeleteTeam = (teamId: number) => {
+        Alert.alert(
+            "Confirmar eliminación",
+            "¿Estás seguro que deseas eliminar este equipo?",
+            [
+                {
+                    text: "Cancelar",
+                    style: "cancel"
+                },
+                {
+                    text: "Eliminar",
+                    style: "destructive",
+                    onPress: () => deleteTeam(teamId)
+                }
+            ]
+        );
+    };
 
     const handleUpdateTeamImage = async (teamId: number) => {
     try {
@@ -95,7 +113,7 @@ const TeamsManagementScreen = () => {
                             <Text style={styles.teamName}>{item.name}</Text>
                             <TouchableOpacity 
                                 style={styles.deleteButton}
-                                onPress={() => deleteTeam(item.id)}
+                                onPress={() => handleDeleteTeam(item.id)}
                             >
                                 <Text style={styles.deleteText}>Eliminar</Text>
                             </TouchableOpacity>

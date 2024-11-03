@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Match, Team } from '../../types';
@@ -8,25 +8,102 @@ import { supabase } from '../../lib/createClient';
 import { useMatches } from '../../hooks/useMatches';
 
 const MatchesManagementScreen = () => {
-    const [matches, setMatches] = useState<Match[]>([]);
     const { teams, loading: teamsLoading } = useTeams();
     const [localTeam, setLocalTeam] = useState<number | undefined>(undefined);
     const [awayTeam, setAwayTeam] = useState<number | undefined>(undefined);
     const [stadium, setStadium] = useState<string>('');
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [showDatePicker, setShowDatePicker] = useState(false);  // Toggle for date picker
-    const { createMatch, fetchMatches } = useMatches();
+    const { matches, createMatch, fetchMatches } = useMatches();
 
     useEffect(() => {
         fetchMatches();
     }, []);
 
-    const handleAddMatch = () => {
+    const getTeamInfo = (teamId: number) => {
+        const team = teams.find(team => team.id === teamId);
+        return {
+            name: team?.name || 'Equipo no encontrado',
+            shield: team?.team_shield || 'https://via.placeholder.com/50'
+        };
+    };
+
+    const handleDeleteMatch = async (matchId: number) => {
+        Alert.alert(
+            "Confirmar eliminación",
+            "¿Estás seguro que deseas eliminar este partido?",
+            [
+                {
+                    text: "Cancelar",
+                    style: "cancel"
+                },
+                {
+                    text: "Eliminar",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            // Eliminar el partido de la base de datos
+                            const { error } = await supabase
+                                .from('matches')
+                                .delete()
+                                .eq('id', matchId);
+
+                            if (error) throw error;
+
+                            // Actualizar la lista de partidos
+                            fetchMatches();
+
+                            Alert.alert(
+                                "Éxito",
+                                "El partido ha sido eliminado correctamente"
+                            );
+                        } catch (error) {
+                            Alert.alert(
+                                "Error",
+                                "No se pudo eliminar el partido. Por favor intente nuevamente"
+                            );
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleAddMatch = async () => {
         if (!localTeam || !awayTeam || !stadium || !date) {
-            Alert.alert("Please fill all fields");
+            Alert.alert("Error", "Por favor complete todos los campos");
             return;
         }
-        createMatch({ local_team: localTeam, away_team: awayTeam, stadium, date: date.toISOString().split('T')[0] });
+
+        try {
+            await createMatch({
+                local_team: localTeam,
+                away_team: awayTeam,
+                stadium,
+                date: date.toISOString().split('T')[0]
+            });
+
+            // Mostrar notificación de éxito
+            Alert.alert(
+                "¡Éxito!",
+                "El partido se ha programado correctamente",
+                [{ text: "OK" }]
+            );
+
+            // Limpiar el formulario
+            setLocalTeam(undefined);
+            setAwayTeam(undefined);
+            setStadium('');
+            setDate(undefined);
+
+            // Actualizar la lista de partidos
+            fetchMatches();
+        } catch (error) {
+            Alert.alert(
+                "Error",
+                "No se pudo programar el partido. Por favor intente nuevamente"
+            );
+        }
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -91,28 +168,62 @@ const MatchesManagementScreen = () => {
             <FlatList
                 data={matches}
                 style={styles.list}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <View style={styles.matchHeader}>
-                            <Text style={styles.dateText}>{item.date}</Text>
-                            <Text style={styles.stadiumText}>{item.stadium}</Text>
+                renderItem={({ item }) => {
+                    const localTeam = getTeamInfo(item.local_team);
+                    const awayTeam = getTeamInfo(item.away_team);
+
+                    return (
+                        <View style={styles.card}>
+                            <View style={styles.matchHeader}>
+                                <Text style={styles.dateText}>
+                                    {new Date(item.date).toLocaleDateString()}
+                                </Text>
+                                <Text style={styles.stadiumText}>{item.stadium}</Text>
+                            </View>
+                            <View style={styles.matchContent}>
+                                <View style={styles.teamContainer}>
+                                    <Image
+                                        source={{ uri: localTeam.shield }} 
+                                        style={styles.shield}
+                                    />
+                                    <Text style={styles.teamText}>
+                                        {localTeam.name}
+                                    </Text>
+                                    <Text style={styles.scoreText}>
+                                        {item.local_team_goals ?? '-'}
+                                    </Text>
+                                </View>
+                                <Text style={styles.vsText}>vs</Text>
+                                <View style={styles.teamContainer}>
+                                    <Image 
+                                        source={{ uri: awayTeam.shield }} 
+                                        style={styles.shield}
+                                    />
+                                    <Text style={styles.teamText}>
+                                        {awayTeam.name}
+                                    </Text>
+                                    <Text style={styles.scoreText}>
+                                        {item.away_team_goals ?? '-'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity 
+                                style={styles.deleteButton}
+                                onPress={() => handleDeleteMatch(item.id)}
+                            >
+                                <Text style={styles.deleteText}>Eliminar</Text>
+                            </TouchableOpacity>
                         </View>
-                        <View style={styles.matchContent}>
-                            <Text style={styles.teamText}>Local</Text>
-                            <Text style={styles.scoreText}>{item.local_team_goals}</Text>
-                            <Text style={styles.vsText}>vs</Text>
-                            <Text style={styles.scoreText}>{item.away_team_goals}</Text>
-                            <Text style={styles.teamText}>Visitante</Text>
-                        </View>
-                        <TouchableOpacity 
-                            style={styles.deleteButton}
-                            onPress={() => {/* Delete logic */}}
-                        >
-                            <Text style={styles.deleteText}>Eliminar</Text>
-                        </TouchableOpacity>
+                    );
+                }}
+                keyExtractor={item => item.id.toString()}
+                ListEmptyComponent={() => (
+                    <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>
+                            No hay partidos programados
+                        </Text>
                     </View>
                 )}
-                keyExtractor={item => item.id.toString()}
             />
         </View>
     );
@@ -208,6 +319,27 @@ const styles = StyleSheet.create({
     deleteText: {
         color: '#ff4444',
         fontWeight: 'bold',
+    },
+    teamContainer: {
+        flex: 1,
+        alignItems: 'center',
+        padding: 10,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: '#666',
+        fontStyle: 'italic',
+    },
+    shield: {
+        width: 50,
+        height: 50,
+        resizeMode: 'contain',
+        marginBottom: 5,
     },
 });
 
