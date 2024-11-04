@@ -13,8 +13,8 @@ const MainScreen = () => {
   useEffect(() => {
     fetchMatches();
     fetchTeams();
-    
-  }, [fetchMatches]);
+
+  }, []);
 
   useEffect(() => {
     if (matches.length > 0) {

@@ -16,13 +16,21 @@ const PlayerStatsScreen = () => {
 
     useEffect(() => {
         if (statistics.length > 0) {
-            handleSort(sortBy);
+            const sorted = [...statistics].sort((a, b) => {
+                if (typeof a[sortBy] === 'number' && typeof b[sortBy] === 'number') {
+                    return (b[sortBy] as number) - (a[sortBy] as number);
+                }
+                return 0;
+            });
+            setSortedStats(sorted);
         }
+    }, [sortBy, statistics]);
 
+    useEffect(() => {
         fetchPlayers();
         fetchTeams();
         fetchStatistics();
-    }, [statistics, sortBy]);
+    }, []);
 
     const handleSort = (key: keyof Statistics) => {
         setSortBy(key);
