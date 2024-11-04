@@ -8,7 +8,7 @@ import { supabase } from '../../lib/createClient';
 import { useMatches } from '../../hooks/useMatches';
 
 const MatchesManagementScreen = () => {
-    const { teams, loading: teamsLoading } = useTeams();
+    const { teams, loading: teamsLoading, fetchTeams } = useTeams();
     const [localTeam, setLocalTeam] = useState<number | undefined>(undefined);
     const [awayTeam, setAwayTeam] = useState<number | undefined>(undefined);
     const [stadium, setStadium] = useState<string>('');
@@ -21,6 +21,7 @@ const MatchesManagementScreen = () => {
 
     useEffect(() => {
         fetchMatches();
+        fetchTeams();
     }, []);
 
     const getTeamInfo = (teamId: number) => {
