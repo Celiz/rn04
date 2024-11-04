@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     View, 
     Text, 
@@ -16,6 +16,9 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { usePlayers } from '../../hooks/usePlayers';
 import { Player } from '../../types';
 import { uploadImage } from '../../utils/storage';
+import PlayerStatisticsModal from '../../components/PlayerStatisticsModal';
+import { useStatistics } from '../../hooks/useStatistics';
+import PlayerEditModal from '../../components/PlayerEditModal';
 
 const CameraComponent = ({ 
     visible, 
@@ -30,7 +33,7 @@ const CameraComponent = ({
     const [permission, requestPermission] = useCameraPermissions();
     const [photo, setPhoto] = useState<string | null>(null);
     const cameraRef = useRef<any>(null);
-
+    
     if (!permission?.granted) {
         return (
             <View style={styles.container}>
@@ -132,6 +135,15 @@ const PlayersManagementScreen = () => {
     const [showCamera, setShowCamera] = useState(false);
     const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
 
+    const [showStatistics, setShowStatistics] = useState(false);
+    const [showEditPlayer, setShowEditPlayer] = useState(false);
+    const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+    const { statistics } = useStatistics();
+
+    useEffect(() => {
+        fetchPlayers();
+    }, []);
+
     const handleCapturePlayerImage = (playerId: number) => {
         setSelectedPlayerId(playerId);
         setShowCamera(true);
@@ -157,6 +169,16 @@ const PlayersManagementScreen = () => {
                 setSelectedPlayerId(null);
             }
         }
+    };
+
+    const handleEditStatistics = (player: Player) => {
+        setSelectedPlayer(player);
+        setShowStatistics(true);
+    };
+
+    const handleEditPlayer = (player: Player) => {
+        setSelectedPlayer(player);
+        setShowEditPlayer(true);
     };
 
     const handleDeletePlayer = (playerId: number) => {
@@ -211,7 +233,26 @@ const PlayersManagementScreen = () => {
         <View style={styles.card}>
             <View style={styles.cardContent}>
                 {renderPlayerIcon(item)}
-                <Text style={styles.playerName}>{item.name}</Text>
+                <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>{item.name} {item.surname}</Text>
+                    <Text style={styles.playerDetails}>
+                        {item.position} | #{item.jersey_number} | {item.age} años
+                    </Text>
+                    <View style={styles.buttonGroup}>
+                        <TouchableOpacity 
+                            style={styles.editButton}
+                            onPress={() => handleEditPlayer(item)}
+                        >
+                            <Text style={styles.editButtonText}>Editar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.statsButton}
+                            onPress={() => handleEditStatistics(item)}
+                        >
+                            <Text style={styles.statsButtonText}>Estadísticas</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
                 <TouchableOpacity 
                     style={styles.deleteButton}
                     onPress={() => handleDeletePlayer(item.id)}
@@ -240,6 +281,31 @@ const PlayersManagementScreen = () => {
                 onClose={() => setShowCamera(false)}
                 onTakePhoto={handlePhotoTaken}
             />
+
+            {selectedPlayer && (
+                <PlayerStatisticsModal
+                    visible={showStatistics}
+                    onClose={() => {
+                        setShowStatistics(false);
+                        setSelectedPlayer(null);
+                    }}
+                    playerId={selectedPlayer.id}
+                    playerName={`${selectedPlayer.name} ${selectedPlayer.surname}`}
+                    initialStatistics={statistics.find(s => s.player === selectedPlayer.id)}
+                />
+            )}
+
+            {selectedPlayer && (
+                <PlayerEditModal
+                    visible={showEditPlayer}
+                    onClose={() => {
+                        setShowEditPlayer(false);
+                        setSelectedPlayer(null);
+                        fetchPlayers();
+                    }}
+                    player={selectedPlayer}
+                />
+            )}
         </View>
     );
 };
@@ -352,6 +418,44 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontWeight: 'bold',
     },
+    playerInfo: {
+        flex: 1,
+        marginLeft: 10,
+    },
+    statsButton: {
+        backgroundColor: '#3498db',
+        padding: 5,
+        borderRadius: 5,
+        marginTop: 5,
+        alignSelf: 'flex-start',
+    },
+    statsButtonText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    playerDetails: {
+        color: '#666',
+        fontSize: 14,
+    },
+    buttonGroup: {
+        flexDirection: 'row',
+        marginTop: 5,
+        gap: 10,
+    },
+    editButton: {
+        backgroundColor: '#f39c12',
+        padding: 5,
+        borderRadius: 5,
+        marginTop: 5,
+        alignSelf: 'flex-start',
+    },
+    editButtonText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    
 });
 
 export default PlayersManagementScreen;

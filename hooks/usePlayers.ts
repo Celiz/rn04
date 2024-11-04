@@ -55,22 +55,28 @@ export const usePlayers = () => {
 
   const deletePlayer = async (id: number) => {
     try {
-      const { error } = await supabase
+      // First, delete associated statistics
+      const { error: statsError } = await supabase
+        .from('statistics')
+        .delete()
+        .eq('player', id);
+
+      if (statsError) throw statsError;
+
+      // Then, delete the player
+      const { error: playerError } = await supabase
         .from('players')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
-    //   await fetchPlayers();
+      if (playerError) throw playerError;
+
+      await fetchPlayers();
     } catch (error) {
       console.error('Error deleting player:', error);
       throw error;
     }
   };
-
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
 
   return { players, loading, fetchPlayers,createPlayer, updatePlayer, deletePlayer };
 };

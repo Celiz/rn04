@@ -26,7 +26,7 @@ export const RootNavigator = () => {
                 <Stack.Screen name="Admin" component={AdminNavigator} />
                 </>
             ) : (
-                // Main Stack
+
                 <>
                 <Stack.Screen name="Main" component={MainNavigator} />
                 </>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert, Image, ScrollView } from 'react-native';
 import { User, Player, Team } from '../../types';
 import { useUserManagement } from '../../hooks/useUserManagment';
 import * as ImagePicker from 'expo-image-picker';
@@ -182,6 +182,8 @@ const UsersManagementScreen = () => {
 
 
     const renderForm = () => (
+        <ScrollView>
+        
         <View style={styles.formContainer}>
             <TextInput
                 style={styles.input}
@@ -281,6 +283,7 @@ const UsersManagementScreen = () => {
                 <Text style={styles.submitButtonText}>Crear Usuario</Text>
             </TouchableOpacity>
         </View>
+        </ScrollView>
     );
 
     return (

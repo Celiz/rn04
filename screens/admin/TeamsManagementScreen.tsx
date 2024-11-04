@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { useTeams } from '../../hooks/useTeams';
 import { Team } from '../../types';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImage } from '../../utils/storage';
 
 const TeamsManagementScreen = () => {
-    const { teams, loading, createTeam, updateTeam, deleteTeam } = useTeams();
+    const { teams, loading, createTeam, updateTeam, deleteTeam, fetchTeams  } = useTeams();
     const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+    const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
+
+    useEffect(() => {
+        fetchTeams();
+    }, []);
 
     const handleDeleteTeam = (teamId: number) => {
         Alert.alert(
@@ -29,46 +34,44 @@ const TeamsManagementScreen = () => {
     };
 
     const handleUpdateTeamImage = async (teamId: number) => {
-    try {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (permissionResult.granted === false) {
-            alert('Se necesita permiso para acceder a la galería');
-            return;
-        }
-
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 1,
-            // Asegúrate de que el picker devuelva información sobre el tipo de archivo
-            allowsMultipleSelection: false,
-        });
-
-        if (!result.canceled && result.assets[0]) {
-            setUploadingImage(teamId.toString());
-            const imageUri = result.assets[0].uri;
-            try {
-                const publicUrl = await uploadImage(imageUri, 'team-shields');
-                
-                if (publicUrl) {
-                    await updateTeam(Number(teamId), { team_shield: publicUrl });
-                }
-            } catch (error) {
-                console.error('Error al actualizar la imagen:', error);
-                // Mostrar el mensaje de error específico al usuario
-                alert(error instanceof Error ? error.message : 'Error al actualizar la imagen');
-            } finally {
-                setUploadingImage(null);
+        try {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            
+            if (permissionResult.granted === false) {
+                alert('Se necesita permiso para acceder a la galería');
+                return;
             }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 1,
+                allowsMultipleSelection: false,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setUploadingImage(teamId.toString());
+                const imageUri = result.assets[0].uri;
+                try {
+                    const publicUrl = await uploadImage(imageUri, 'team-shields');
+                    
+                    if (publicUrl) {
+                        await updateTeam(Number(teamId), { team_shield: publicUrl });
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar la imagen:', error);
+                    alert(error instanceof Error ? error.message : 'Error al actualizar la imagen');
+                } finally {
+                    setUploadingImage(null);
+                }
+            }
+        } catch (error) {
+            console.error('Error al seleccionar imagen:', error);
+            alert('Error al seleccionar la imagen');
+            setUploadingImage(null);
         }
-    } catch (error) {
-        console.error('Error al seleccionar imagen:', error);
-        alert('Error al seleccionar la imagen');
-        setUploadingImage(null);
-    }
-};
+    };
 
     const renderTeamIcon = (team: Team) => {
         if (uploadingImage == team.id.toString()) {
@@ -100,9 +103,22 @@ const TeamsManagementScreen = () => {
         );
     };
 
+    const handleEditTeam = (team: Team) => {
+        setEditingTeam(team);
+    };
+
+    const handleSaveTeamName = async (teamId: number, newName: string) => {
+        try {
+            await updateTeam(teamId, { name: newName });
+            setEditingTeam(null);
+        } catch (error) {
+            console.error('Error updating team name:', error);
+            Alert.alert('Error', 'No se pudo actualizar el nombre del equipo');
+        }
+    };
+
     return (
         <View style={styles.container}>
-
             <FlatList
                 data={teams}
                 style={styles.list}
@@ -110,7 +126,19 @@ const TeamsManagementScreen = () => {
                     <View style={styles.card}>
                         <View style={styles.cardContent}>
                             {renderTeamIcon(item)}
-                            <Text style={styles.teamName}>{item.name}</Text>
+                            {editingTeam && editingTeam.id === item.id ? (
+                                <TextInput
+                                    style={styles.editInput}
+                                    value={editingTeam.name}
+                                    onChangeText={(text) => setEditingTeam({ ...editingTeam, name: text })}
+                                    onBlur={() => handleSaveTeamName(item.id, editingTeam.name)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <TouchableOpacity onPress={() => handleEditTeam(item)}>
+                                    <Text style={styles.teamName}>{item.name}</Text>
+                                </TouchableOpacity>
+                            )}
                             <TouchableOpacity 
                                 style={styles.deleteButton}
                                 onPress={() => handleDeleteTeam(item.id)}
@@ -200,6 +228,16 @@ const styles = StyleSheet.create({
         color: '#ff4444',
         fontWeight: 'bold',
     },
+    editInput: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        flex: 1,
+        marginLeft: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#34D399',
+        padding: 0,
+    },
 });
 
 export default TeamsManagementScreen;
+

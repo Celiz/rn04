@@ -38,6 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isTeamOrPlayer, setIsTeamOrPlayer] = useState(false);
 
 
 
@@ -62,8 +63,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log('Es admin:', data?.role === 'admin');
                 }
             }
-            checkAdmin();
 
+            const checkPlayerOrTeam = async () => {
+                if (session) {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('role')
+                        .eq('user', session?.user.id)
+                        .single();
+                    if (error) throw error;
+                    setIsTeamOrPlayer(data?.role === 'player' || data?.role === 'team');
+                    console.log('Es jugador o equipo:', data?.role === 'player' || data?.role === 'team');
+                    
+                }
+            }
+
+            checkPlayerOrTeam();
+            checkAdmin();
         });
 
 

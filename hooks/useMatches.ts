@@ -63,9 +63,5 @@ export const useMatches = () => {
     }
   };
 
-  useEffect(() => {
-    fetchMatches();
-  }, []);
-
   return { matches, loading, createMatch, updateMatch, deleteMatch, fetchMatches };
 };

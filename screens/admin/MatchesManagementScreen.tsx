@@ -13,8 +13,11 @@ const MatchesManagementScreen = () => {
     const [awayTeam, setAwayTeam] = useState<number | undefined>(undefined);
     const [stadium, setStadium] = useState<string>('');
     const [date, setDate] = useState<Date | undefined>(undefined);
-    const [showDatePicker, setShowDatePicker] = useState(false);  // Toggle for date picker
-    const { matches, createMatch, fetchMatches } = useMatches();
+    const [localTeamGoals, setLocalTeamGoals] = useState<string>('');
+    const [awayTeamGoals, setAwayTeamGoals] = useState<string>('');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const { matches, createMatch, updateMatch, fetchMatches } = useMatches();
+    const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
     useEffect(() => {
         fetchMatches();
@@ -33,35 +36,22 @@ const MatchesManagementScreen = () => {
             "Confirmar eliminación",
             "¿Estás seguro que deseas eliminar este partido?",
             [
-                {
-                    text: "Cancelar",
-                    style: "cancel"
-                },
+                { text: "Cancelar", style: "cancel" },
                 {
                     text: "Eliminar",
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            // Eliminar el partido de la base de datos
                             const { error } = await supabase
                                 .from('matches')
                                 .delete()
                                 .eq('id', matchId);
 
                             if (error) throw error;
-
-                            // Actualizar la lista de partidos
                             fetchMatches();
-
-                            Alert.alert(
-                                "Éxito",
-                                "El partido ha sido eliminado correctamente"
-                            );
+                            Alert.alert("Éxito", "El partido ha sido eliminado correctamente");
                         } catch (error) {
-                            Alert.alert(
-                                "Error",
-                                "No se pudo eliminar el partido. Por favor intente nuevamente"
-                            );
+                            Alert.alert("Error", "No se pudo eliminar el partido. Por favor intente nuevamente");
                         }
                     }
                 }
@@ -69,41 +59,51 @@ const MatchesManagementScreen = () => {
         );
     };
 
-    const handleAddMatch = async () => {
+    const handleAddOrUpdateMatch = async () => {
         if (!localTeam || !awayTeam || !stadium || !date) {
             Alert.alert("Error", "Por favor complete todos los campos");
             return;
         }
 
+        const matchData = {
+            local_team: localTeam,
+            away_team: awayTeam,
+            stadium,
+            date: date.toISOString().split('T')[0],
+            local_team_goals: localTeamGoals ? parseInt(localTeamGoals) : undefined,
+            away_team_goals: awayTeamGoals ? parseInt(awayTeamGoals) : undefined,
+        };
+
         try {
-            await createMatch({
-                local_team: localTeam,
-                away_team: awayTeam,
-                stadium,
-                date: date.toISOString().split('T')[0]
-            });
+            if (editingMatch) {
+                await updateMatch(editingMatch.id, matchData);
+                Alert.alert("¡Éxito!", "El partido se ha actualizado correctamente");
+            } else {
+                await createMatch(matchData);
+                Alert.alert("¡Éxito!", "El partido se ha programado correctamente");
+            }
 
-            // Mostrar notificación de éxito
-            Alert.alert(
-                "¡Éxito!",
-                "El partido se ha programado correctamente",
-                [{ text: "OK" }]
-            );
-
-            // Limpiar el formulario
             setLocalTeam(undefined);
             setAwayTeam(undefined);
             setStadium('');
             setDate(undefined);
-
-            // Actualizar la lista de partidos
+            setLocalTeamGoals('');
+            setAwayTeamGoals('');
+            setEditingMatch(null);
             fetchMatches();
         } catch (error) {
-            Alert.alert(
-                "Error",
-                "No se pudo programar el partido. Por favor intente nuevamente"
-            );
+            Alert.alert("Error", "No se pudo guardar el partido. Por favor intente nuevamente");
         }
+    };
+
+    const handleEditMatch = (match: Match) => {
+        setEditingMatch(match);
+        setLocalTeam(match.local_team);
+        setAwayTeam(match.away_team);
+        setStadium(match.stadium);
+        setDate(new Date(match.date));
+        setLocalTeamGoals(match.local_team_goals?.toString() || '');
+        setAwayTeamGoals(match.away_team_goals?.toString() || '');
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -121,7 +121,7 @@ const MatchesManagementScreen = () => {
                     onValueChange={(itemValue) => setLocalTeam(itemValue)}
                     style={styles.picker}
                 >
-                    <Picker.Item label="Select Local Team" value={undefined} />
+                    <Picker.Item label="Seleccionar equipo local" value={undefined} />
                     {!teamsLoading && teams.map((team) => (
                         <Picker.Item key={team.id} label={team.name} value={team.id} />
                     ))}
@@ -132,7 +132,7 @@ const MatchesManagementScreen = () => {
                     onValueChange={(itemValue) => setAwayTeam(itemValue)}
                     style={styles.picker}
                 >
-                    <Picker.Item label="Select Away Team" value={undefined} />
+                    <Picker.Item label="Seleccionar equipo visitante" value={undefined} />
                     {!teamsLoading && teams.map((team) => (
                         <Picker.Item key={team.id} label={team.name} value={team.id} />
                     ))}
@@ -140,14 +140,14 @@ const MatchesManagementScreen = () => {
 
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter Stadium"
+                    placeholder="Ingresar estadio"
                     value={stadium}
                     onChangeText={setStadium}
                 />
 
                 <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
                     <Text style={styles.buttonText}>
-                        {date ? date.toDateString() : "Select Date"}
+                        {date ? date.toDateString() : "Seleccionar Fecha"}
                     </Text>
                 </TouchableOpacity>
 
@@ -160,8 +160,32 @@ const MatchesManagementScreen = () => {
                     />
                 )}
 
-                <TouchableOpacity style={styles.addButton} onPress={handleAddMatch}>
-                    <Text style={styles.buttonText}>Programar Partido</Text>
+                {
+                    editingMatch && (
+                        <View style={styles.goalsContainer}>
+                            <TextInput
+                                style={styles.goalsInput}
+                                placeholder="Goles equipo local"
+                                value={localTeamGoals}
+                                onChangeText={setLocalTeamGoals}
+                                keyboardType="numeric"
+                            />
+                            <TextInput
+                                style={styles.goalsInput}
+                                placeholder="Goles equipo visitante"
+                                value={awayTeamGoals}
+                                onChangeText={setAwayTeamGoals}
+                                keyboardType="numeric"
+                            />
+                        </View>
+
+                    )
+                }
+
+                <TouchableOpacity style={styles.addButton} onPress={handleAddOrUpdateMatch}>
+                    <Text style={styles.buttonText}>
+                        {editingMatch ? "Actualizar Partido" : "Programar Partido"}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -183,7 +207,7 @@ const MatchesManagementScreen = () => {
                             <View style={styles.matchContent}>
                                 <View style={styles.teamContainer}>
                                     <Image
-                                        source={{ uri: localTeam.shield }} 
+                                        source={{ uri: localTeam.shield }}
                                         style={styles.shield}
                                     />
                                     <Text style={styles.teamText}>
@@ -195,8 +219,8 @@ const MatchesManagementScreen = () => {
                                 </View>
                                 <Text style={styles.vsText}>vs</Text>
                                 <View style={styles.teamContainer}>
-                                    <Image 
-                                        source={{ uri: awayTeam.shield }} 
+                                    <Image
+                                        source={{ uri: awayTeam.shield }}
                                         style={styles.shield}
                                     />
                                     <Text style={styles.teamText}>
@@ -207,12 +231,20 @@ const MatchesManagementScreen = () => {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity 
-                                style={styles.deleteButton}
-                                onPress={() => handleDeleteMatch(item.id)}
-                            >
-                                <Text style={styles.deleteText}>Eliminar</Text>
-                            </TouchableOpacity>
+                            <View style={styles.buttonContainer}>
+                                <TouchableOpacity
+                                    style={styles.editButton}
+                                    onPress={() => handleEditMatch(item)}
+                                >
+                                    <Text style={styles.editText}>Editar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.deleteButton}
+                                    onPress={() => handleDeleteMatch(item.id)}
+                                >
+                                    <Text style={styles.deleteText}>Eliminar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     );
                 }}
@@ -313,13 +345,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
     },
-    deleteButton: {
-        padding: 8,
-    },
-    deleteText: {
-        color: '#ff4444',
-        fontWeight: 'bold',
-    },
     teamContainer: {
         flex: 1,
         alignItems: 'center',
@@ -340,6 +365,41 @@ const styles = StyleSheet.create({
         height: 50,
         resizeMode: 'contain',
         marginBottom: 5,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    editButton: {
+        padding: 8,
+        backgroundColor: '#3498db',
+        borderRadius: 5,
+    },
+    editText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    deleteButton: {
+        padding: 8,
+    },
+    deleteText: {
+        color: '#ff4444',
+        fontWeight: 'bold',
+    },
+    goalsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    goalsInput: {
+        flex: 1,
+        height: 50,
+        borderColor: '#ddd',
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 10,
+        marginRight: 5,
     },
 });
 

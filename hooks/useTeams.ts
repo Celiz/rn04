@@ -63,9 +63,5 @@ export const useTeams = () => {
     }
   };
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
-
-  return { teams, loading, createTeam, updateTeam, deleteTeam };
+  return { teams, loading, createTeam, updateTeam, deleteTeam, fetchTeams };
 };

@@ -6,23 +6,21 @@ export const useStatistics = () => {
   const [statistics, setStatistics] = useState<Statistics[]>([]);
   const [loading, setLoading] = useState(true);
 
-//   const fetchStatistics = async () => {
-//     try {
-//       const { data, error } = await supabase
-//         .from('statistics')
-//         .select(`
-//           *,
-//           players:player_id (*)
-//         `);
-      
-//       if (error) throw error;
-//       setStatistics(data || []);
-//     } catch (error) {
-//       console.error('Error fetching statistics:', error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
+  const fetchStatistics = async () => {
+    try {
+        const { data, error } = await supabase
+        .from('statistics')
+        .select('*');
+
+        if (error) throw error;
+        setStatistics(data || []);
+    } catch (error) {
+        console.error('Error fetching statistics:', error);
+    } finally {
+        setLoading(false);
+    }
+    };
+
 
   const createStatistics = async (statsData: Partial<Statistics>) => {
     try {
@@ -71,9 +69,5 @@ export const useStatistics = () => {
     }
   };
 
-  useEffect(() => {
-    // fetchStatistics();
-  }, []);
-
-  return { statistics, loading, createStatistics, updateStatistics, deleteStatistics };
+  return { statistics, loading, createStatistics, updateStatistics, deleteStatistics, fetchStatistics };
 };

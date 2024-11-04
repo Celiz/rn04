@@ -70,9 +70,6 @@ export const useUsers = () => {
         }
     };
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
+    
     return { users, loading, createUser, updateUser, deleteUser };
 };

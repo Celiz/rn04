@@ -55,22 +55,22 @@ export const MainNavigator = () => {
             <Tab.Screen
                 name="Teams"
                 component={TeamsScreen}
-                options={{ title: 'Equipos' }}
+                options={{ title: 'Teams' }}
             />
             <Tab.Screen
                 name="Matches"
                 component={MatchesScreen}
-                options={{ title: 'Partidos' }}
+                options={{ title: 'Matches' }}
             />
             <Tab.Screen
                 name="Statistics"
                 component={StatisticsScreen}
-                options={{ title: 'Estadisticas' }}
+                options={{ title: 'Statistics' }}
             />
             <Tab.Screen
                 name="Profile"
                 component={ProfileScreen}
-                options={{ title: 'Perfil' }}
+                options={{ title: 'Profile' }}
             />
         </Tab.Navigator>
     );
