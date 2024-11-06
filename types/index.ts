@@ -42,6 +42,7 @@ export interface Statistics {
 }
 
 export interface User {
+    id: number;
     user: string;
     email: string;
     role: string;

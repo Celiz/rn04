@@ -5,16 +5,16 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
 // Screens
-import HomeScreen from '../screens/main/MainScreen';
+
 import TeamsScreen from '../screens/main/TeamsScreen';
 import MatchesScreen from '../screens/main/MatchesScreen';
 import StatisticsScreen from '../screens/main/StatsScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
+import ProfileScreen from '../screens/teamsOrPlayer/PlayerProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
 
-export const MainNavigator = () => {
+export const TeamOrPlayerNavigation = () => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -47,11 +47,6 @@ export const MainNavigator = () => {
                 tabBarInactiveTintColor: 'gray',
             })}
         >
-            <Tab.Screen
-                name="Home"
-                component={HomeScreen}
-                options={{ title: 'Home' }}
-            />
             <Tab.Screen
                 name="Teams"
                 component={TeamsScreen}

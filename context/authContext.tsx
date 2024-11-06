@@ -16,6 +16,7 @@ type AuthContextData = {
     signOut: () => Promise<void>;
     forgotPassword: (email: string) => Promise<void>;
     isAdmin: boolean;
+    isTeamOrPlayer: boolean;
 };
 
 
@@ -215,6 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signOut,
             forgotPassword,
             isAdmin,
+            isTeamOrPlayer
         }}>
             {children}
         </AuthContext.Provider>

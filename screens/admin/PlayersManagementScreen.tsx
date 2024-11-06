@@ -19,6 +19,7 @@ import { uploadImage } from '../../utils/storage';
 import PlayerStatisticsModal from '../../components/PlayerStatisticsModal';
 import { useStatistics } from '../../hooks/useStatistics';
 import PlayerEditModal from '../../components/PlayerEditModal';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const CameraComponent = ({ 
     visible, 
@@ -52,7 +53,19 @@ const CameraComponent = ({
         if (cameraRef.current) {
             try {
                 const photo = await cameraRef.current.takePictureAsync();
-                setPhoto(photo.uri);
+                const manipulations = [];
+                
+                // If using front camera, flip the image horizontally
+                if (facing === 'front') {
+                    manipulations.push({ flip: ImageManipulator.FlipType.Horizontal });
+                }
+                
+                const manipulatedPhoto = await ImageManipulator.manipulateAsync(
+                    photo.uri,
+                    manipulations,
+                    { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                setPhoto(manipulatedPhoto.uri);
             } catch (error) {
                 console.error('Error taking picture:', error);
             }

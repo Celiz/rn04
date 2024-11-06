@@ -4,11 +4,12 @@ import { useAuth } from '../context/authContext';
 import { MainNavigator } from './MainNavigation';
 import { AuthNavigator } from './AuthNavigation';
 import { AdminNavigator } from './AdminNavigation';
+import { TeamOrPlayerNavigation} from './TeamOrPlayerNavigation';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isTeamOrPlayer } = useAuth();
 
 
   return (
@@ -27,9 +28,19 @@ export const RootNavigator = () => {
                 </>
             ) : (
 
-                <>
-                <Stack.Screen name="Main" component={MainNavigator} />
-                </>
+                isTeamOrPlayer ? (
+                    // Team or Player Stack
+                    <>
+                    <Stack.Screen name="Main" component={TeamOrPlayerNavigation} />
+                    </>
+                ) : (
+                    // Default Stack
+                    <>
+                    <Stack.Screen name="Main" component={MainNavigator} />
+                    </>
+                )
+
+
             )
         }
         </>

@@ -71,5 +71,5 @@ export const useUsers = () => {
     };
 
     
-    return { users, loading, createUser, updateUser, deleteUser };
+    return { users, loading, createUser, updateUser, deleteUser, fetchUsers };
 };
